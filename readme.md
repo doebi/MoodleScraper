@@ -15,6 +15,17 @@
 MoodleScraper is a tool for scraping resources from Moodle.
 
 
+Description
+-----------
+
+This script downloads all resources for your specified moodle instance and saves it in a neat folder structure.
+
++--Semester/
+|  +--Class/
+|  |  +--Section/
+|  |  |  +--Resource.src
+
+
 Prerequisites
 -------------
 
