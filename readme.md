@@ -31,9 +31,10 @@ Prerequisites
 
 The script uses python-requests and BeautifulSoup4.
 
+´´´
 pip install requests
 pip install beautifulSoup4
-
+´´´
 
 Configuration
 -------------
@@ -44,7 +45,9 @@ open the script with your favourite text-editor and edit lines 5 to 16.
 Usage
 -----
 
+´´´
 python scraper.py
+´´´
 
 Follow the Dialog.
 
