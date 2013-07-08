@@ -1,3 +1,4 @@
+<pre>
       _____                    .___.__              
      /     \   ____   ____   __| _/|  |   ____      
     /  \ /  \ /  _ \ /  _ \ / __ | |  | _/ __ \     
@@ -10,7 +11,7 @@
  /        \  \___|  | \// __ \|  |_> >  ___/|  | \/ 
 /_______  /\___  >__|  (____  /   __/ \___  >__|    
         \/     \/           \/|__|        \/        
-
+</pre>
 
 MoodleScraper is a tool for scraping resources from Moodle.
 
@@ -31,10 +32,10 @@ Prerequisites
 
 The script uses python-requests and BeautifulSoup4.
 
-´´´
+```
 pip install requests
 pip install beautifulSoup4
-´´´
+```
 
 Configuration
 -------------
@@ -45,9 +46,9 @@ open the script with your favourite text-editor and edit lines 5 to 16.
 Usage
 -----
 
-´´´
+```
 python scraper.py
-´´´
+```
 
 Follow the Dialog.
 
