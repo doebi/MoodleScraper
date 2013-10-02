@@ -1,0 +1,6 @@
+[scraper]
+user = username
+pwd = password
+root = /path/to/your/desired/location/
+baseurl = https://moodle.school.tld/
+stg = class

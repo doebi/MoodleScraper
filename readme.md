@@ -42,8 +42,8 @@ pip install beautifulSoup4
 Configuration
 -------------
 
-open the script with your favourite text-editor and edit lines 5 to 16.
-
+copy scraper.conf.sample to scraper.conf and change all values to your needs
+save and enjoy ;)
 
 Usage
 -----

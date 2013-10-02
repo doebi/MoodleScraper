@@ -1,21 +1,12 @@
 from requests import session
 from bs4 import BeautifulSoup
 import os, sys, itertools
+import urllib
+import ConfigParser
 
-#======= CONFIG =======#
-#your user name
-user = 'myuser'
-#your password
-pwd = 'super-secrept-password'
-#path where you want to save your scraped data
-root = 'mydata/'
-#url of your moodle setup
-baseurl = 'http://moodle.school.tld/'
-#name of your course
-stg = 'SEv'
-#======= CONFIG =======#
-
-
+config = ConfigParser.RawConfigParser()
+config.read('scraper.conf')
+conf = dict(config.items('scraper')) 
 
 sections = itertools.count()
 files = itertools.count()
@@ -35,16 +26,18 @@ def login(user, pwd):
         'password': pwd
     }
     with session() as ses:
-        r = ses.post(baseurl + 'login/index.php', data=authdata)
+        r = ses.post(conf['baseurl'] + 'login/index.php', data=authdata)
         return ses
 
 
 def getSemesters(ses):
-    r = ses.get(baseurl + 'index.php')
+    r = ses.get(conf['baseurl'] + 'index.php')
 
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
         semesters = dict()
+        temp = soup.find(id='cmb_mc_semester')
+
         for o in soup.find(id='cmb_mc_semester'):
             if o != unicode('\n'):
                 if o.string != 'Alle Semester':
@@ -69,7 +62,7 @@ def getInfo(tag):
 
 
 def getCoursesForSem(session, s):
-    r = session.get(baseurl + 'index.php?role=0&cat=1&stg='+ stg +'&csem=1&sem=' + s)
+    r = session.get(conf['baseurl'] + 'index.php?role=0&cat=1&stg='+ conf['stg'] +'&csem=1&sem=' + s)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
         courses = list()
@@ -85,19 +78,49 @@ def getCoursesForSem(session, s):
 def saveFile(session, src, path, name):
     global files
     files.next()
-    dst = path + name
+    name = urllib.url2pathname(str(name))
+    dst = path.encode('utf-8') + name
     try:
         with open(dst):
-            print u'|  |  +--{:<50s}'.format(name) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+            print '|  |  +--{:<50s}'.format(name) + '['+colors.OKBLUE+'skipped'+colors.ENDC+']'
             pass
     except IOError:
         with open(dst, 'wb') as handle:
-            print u'|  |  +--{:<50s}'.format(name) + u'['+colors.OKGREEN+'downloading'+colors.ENDC+']'
+            print '|  |  +--{:<50s}'.format(name) + '['+colors.OKGREEN+'downloading'+colors.ENDC+']'
             r = session.get(src, stream=True)
             for block in r.iter_content(1024):
                 if not block:
                     break
                 handle.write(block)
+
+
+def saveLink(session, url, path, name):
+    fname = name + '.html'
+    dst = path + fname
+    try:
+        with open(dst):
+            print u'|  |  +--{:<50s}'.format(fname) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+            pass
+    except IOError:
+        with open(dst, 'wb') as handle:
+            print u'|  |  +--{:<50s}'.format(fname) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
+            r = session.get(url)
+            soup = BeautifulSoup(r.text)
+            link = soup.find(class_='region-content').a['href']
+            handle.write(u'<a href="' + link + u'">' + name + u'</a>')
+
+
+def saveInfo(path, info, tab):
+    name = u'info.txt'
+    dst = path + name
+    try:
+        with open(dst):
+            print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+            pass
+    except IOError:
+        with open(dst, 'wb') as handle:
+            print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
+            handle.write(info.encode('utf-8'))
 
 
 def downloadResource(session, res, path):
@@ -106,14 +129,18 @@ def downloadResource(session, res, path):
     if(r.status_code == 200):
         headers = r.headers.keys()
         if ('content-disposition' in headers):
+            #got a direct file link
             name = r.headers['content-disposition'].decode('utf-8').split(';')[1].split('=')[1].strip('"')
         else:
+            #got a preview page
             soup = BeautifulSoup(r.text)
             if ('content-type' in headers) and ('content-script-type' in headers) and ('content-style-type' in headers):
+                #it's most obviously a website, which displays a download link
                 src = soup.find(class_='region-content').a['href']
             else:
+                #it's obviously an ugly frameset site
                 src = soup.find_all('frame')[1]['src']
-            name = os.path.basename(src).replace('%20', ' ').replace('%28', '(').replace('%29', ')')
+            name = os.path.basename(src)
         saveFile(session, src, path, name)
     else:
         print 'ERROR: ' + str(r.status) + ' ' + r.reason
@@ -123,20 +150,34 @@ def downloadResource(session, res, path):
 def downloadSection(session, s, path):
     global sections
     if s['id'] == 'section-0':
-        #TODO: save info as textfile
-        a = 2 + 3
+        try:
+            info = s.find(class_='activity label modtype_label ').get_text()
+        except AttributeError:
+            print u'{:<50s}'.format(u'No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
+        else:
+            saveInfo(path, info, u'')
     else:
         sections.next()
         s = list(s.children)[2]
-        name = s.find(class_='sectionname').contents[0].replace('/', '-') + '/'
+        name = s.find(class_='sectionname').contents[0].replace('/', '-') + u'/'
         path += name
         print '|  +--' + name
         if not os.path.exists(path):
             os.makedirs(path)
-        res = s.find_all(class_='activity resource modtype_resource')
+        try:
+            info = s.find(class_='summary').get_text()
+        except AttributeError:
+            print u'{:<53s}'.format(u'|  +--No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
+        else:
+            saveInfo(path, info, u'|  ')
+        res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
             downloadResource(session, r, path)
-
+        links = s.find_all(class_='activity url modtype_url ')
+        for l in links:
+            ln = l.find(class_='instancename')
+            ln.span.extract()
+            saveLink(session, l.a['href'], path, ln.get_text())
 
 
 def downloadCourse(session, c, sem):
@@ -144,8 +185,8 @@ def downloadCourse(session, c, sem):
     global sections
     files = itertools.count()
     sections = itertools.count()
-    name = c['key'].replace('/', '-') + '/'
-    path = root + sem.replace('/', '-') + '/' + name
+    name = c['key'].replace('/', '-') + u'/'
+    path = conf['root'] + sem.replace('/', '-') + u'/' + name
     #TODO: secure pathnames
     if not os.path.exists(path):
         os.makedirs(path)
@@ -179,7 +220,7 @@ print "        \/     \/           \/|__|        \/        "
 print colors.ENDC
 
 #logging in
-session = login(user, pwd)
+session = login(conf['user'], conf['pwd'])
 
 #get semesters
 sems = getSemesters(session)
