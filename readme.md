@@ -37,12 +37,13 @@ The script uses python-requests and BeautifulSoup4.
 ```
 pip install requests
 pip install beautifulSoup4
+pip install urllib
 ```
 
 Configuration
 -------------
 
-copy scraper.conf.sample to scraper.conf and change all values to your needs
+copy scraper.conf.sample to scraper.conf and change all values to your needs.
 save and enjoy ;)
 
 Usage
