@@ -6,7 +6,7 @@ import ConfigParser
 
 config = ConfigParser.RawConfigParser()
 config.read('scraper.conf')
-conf = dict(config.items('scraper')) 
+conf = dict(config.items('scraper'))
 
 sections = itertools.count()
 files = itertools.count()
@@ -78,8 +78,8 @@ def getCoursesForSem(session, s):
 def saveFile(session, src, path, name):
     global files
     files.next()
-    name = urllib.url2pathname(str(name))
-    dst = path.encode('utf-8') + name
+    dst = path + name.decode('utf-8')
+
     try:
         with open(dst):
             print '|  |  +--{:<50s}'.format(name) + '['+colors.OKBLUE+'skipped'+colors.ENDC+']'
@@ -141,6 +141,7 @@ def downloadResource(session, res, path):
                 #it's obviously an ugly frameset site
                 src = soup.find_all('frame')[1]['src']
             name = os.path.basename(src)
+        name = urllib.url2pathname(name.encode('utf-8'))
         saveFile(session, src, path, name)
     else:
         print 'ERROR: ' + str(r.status) + ' ' + r.reason
@@ -159,7 +160,7 @@ def downloadSection(session, s, path):
     else:
         sections.next()
         s = list(s.children)[2]
-        name = s.find(class_='sectionname').contents[0].replace('/', '-') + u'/'
+        name = s.find(class_='sectionname').contents[0].replace('/', '-').strip() + '/'
         path += name
         print '|  +--' + name
         if not os.path.exists(path):
@@ -187,6 +188,7 @@ def downloadCourse(session, c, sem):
     sections = itertools.count()
     name = c['key'].replace('/', '-') + u'/'
     path = conf['root'] + sem.replace('/', '-') + u'/' + name
+    path = urllib.url2pathname(path.encode('utf-8'))
     #TODO: secure pathnames
     if not os.path.exists(path):
         os.makedirs(path)
@@ -209,7 +211,7 @@ print "      _____                    .___.__              "
 print "     /     \   ____   ____   __| _/|  |   ____      "
 print "    /  \ /  \ /  _ \ /  _ \ / __ | |  | _/ __ \     "
 print "   /    Y    (  <_> |  <_> ) /_/ | |  |_\  ___/     "
-print "   \____|__  /\____/ \____/\____ | |____/\___  >    " 
+print "   \____|__  /\____/ \____/\____ | |____/\___  >    "
 print "           \/                   \/           \/     "
 print "  _________                                         "
 print " /   _____/ ________________  ______   ___________  "
@@ -223,6 +225,7 @@ print colors.ENDC
 session = login(conf['user'], conf['pwd'])
 
 #get semesters
+print "getting Semesters..."
 sems = getSemesters(session)
 if not sems:
     print colors.FAIL + 'No semester found - Quitting!' + colors.ENDC
@@ -239,6 +242,7 @@ while not ok:
     ok = s in sems.keys()
 
 #get courses
+print "getting Courses..."
 courses = getCoursesForSem(session, s)
 if not courses:
     print colors.FAIL + 'No courses in this semester - Quitting!' + colors.ENDC
