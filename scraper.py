@@ -157,6 +157,7 @@ def downloadSection(session, s, path):
             print u'{:<50s}'.format(u'No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
         else:
             saveInfo(path, info, u'')
+
     else:
         sections.next()
         s = list(s.children)[2]
