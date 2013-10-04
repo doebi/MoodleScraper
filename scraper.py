@@ -161,16 +161,22 @@ def downloadSection(session, s, path):
         sections.next()
         s = list(s.children)[2]
         name = s.find(class_='sectionname').contents[0].replace('/', '-').strip() + '/'
-        path += name
+        try:
+            info = s.find(class_='summary').get_text()
+            if(len(info) < 25):
+                name = info
+        except AttributeError:
+            path += name
+            print u'{:<53s}'.format(u'|  +--No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
+        else:
+            path += name
+            saveInfo(path, info, u'|  ')
+
         print '|  +--' + name
         if not os.path.exists(path):
             os.makedirs(path)
-        try:
-            info = s.find(class_='summary').get_text()
-        except AttributeError:
-            print u'{:<53s}'.format(u'|  +--No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
-        else:
-            saveInfo(path, info, u'|  ')
+
+
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
             downloadResource(session, r, path)
