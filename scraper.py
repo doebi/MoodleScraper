@@ -1,6 +1,6 @@
 from requests import session
 from bs4 import BeautifulSoup
-import os, sys, itertools
+import os, sys, itertools, re
 import urllib
 import ConfigParser
 
@@ -80,6 +80,7 @@ def saveFile(session, src, path, name):
     files.next()
     dst = path + name.decode('utf-8')
 
+
     try:
         with open(dst):
             print '|  |  +--{:<50s}'.format(name) + '['+colors.OKBLUE+'skipped'+colors.ENDC+']'
@@ -154,28 +155,26 @@ def downloadSection(session, s, path):
         try:
             info = s.find(class_='activity label modtype_label ').get_text()
         except AttributeError:
-            print u'{:<50s}'.format(u'No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
+            pass
         else:
             saveInfo(path, info, u'')
     else:
         sections.next()
         s = list(s.children)[2]
         name = s.find(class_='sectionname').contents[0].replace('/', '-').strip() + '/'
-        try:
-            info = s.find(class_='summary').get_text()
-            if(len(info) < 25):
-                name = info
-        except AttributeError:
-            path += name
-            print u'{:<53s}'.format(u'|  +--No info found! Your Prof is probably too lazy.') + u'['+colors.WARNING+'skipped'+colors.ENDC+']'
-        else:
-            path += name
-            saveInfo(path, info, u'|  ')
+        info = ''
+        info = s.find(class_='summary').get_text().strip()
+        if len(info) > 0:
+            if 'Thema' in name:
+                temp = info.split('\n')
+                name = temp[0].strip()
 
+        path += name + '/'
         print '|  +--' + name
         if not os.path.exists(path):
             os.makedirs(path)
 
+        #saveInfo(path, info, u'')
 
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
