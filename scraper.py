@@ -167,14 +167,16 @@ def downloadSection(session, s, path):
         if len(info) > 0:
             if 'Thema' in name:
                 temp = info.split('\n')
-                name = temp[0].strip()
+                name = temp.pop(0).strip()
+                info = "\n".join(temp)
 
         path += name + '/'
         print '|  +--' + name
         if not os.path.exists(path):
             os.makedirs(path)
 
-        #saveInfo(path, info, u'')
+        if len(info) > 0:
+            saveInfo(path, info, u'')
 
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
