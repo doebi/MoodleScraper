@@ -96,6 +96,8 @@ def saveFile(session, src, path, name):
 
 
 def saveLink(session, url, path, name):
+    global files
+    files.next()
     fname = name + '.html'
     dst = path + fname
     try:
@@ -108,10 +110,12 @@ def saveLink(session, url, path, name):
             r = session.get(url)
             soup = BeautifulSoup(r.text)
             link = soup.find(class_='region-content').a['href']
-            handle.write(u'<a href="' + link + u'">' + name + u'</a>')
+            handle.write(u'<a href="' + link.encode('utf-8') + u'">' + name.encode('utf-8') + u'</a>')
 
 
 def saveInfo(path, info, tab):
+    global files
+    files.next()
     name = u'info.txt'
     dst = path + name
     try:
@@ -158,16 +162,21 @@ def downloadSection(session, s, path):
             pass
         else:
             saveInfo(path, info, u'')
+
+        res = s.find_all(class_='activity resource modtype_resource ')
+        for r in res:
+            downloadResource(session, r, path)
+
     else:
         sections.next()
         s = list(s.children)[2]
-        name = s.find(class_='sectionname').contents[0].replace('/', '-').strip() + '/'
+        name = s.find(class_='sectionname').contents[0].replace('/', '-').strip().strip(':') + '/'
         info = ''
         info = s.find(class_='summary').get_text().strip()
         if len(info) > 0:
             if 'Thema' in name:
                 temp = info.split('\n')
-                name = temp.pop(0).strip()
+                name = temp.pop(0).strip().strip(':')
                 info = "\n".join(temp)
 
         path += name + '/'
@@ -186,6 +195,10 @@ def downloadSection(session, s, path):
             ln = l.find(class_='instancename')
             ln.span.extract()
             saveLink(session, l.a['href'], path, ln.get_text())
+
+        #remove empty folders
+        if os.listdir(path) == []:
+            os.rmdir(path)
 
 
 def downloadCourse(session, c, sem):
