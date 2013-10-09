@@ -114,18 +114,19 @@ def saveLink(session, url, path, name):
 
 
 def saveInfo(path, info, tab):
-    global files
-    files.next()
-    name = u'info.txt'
-    dst = path + name
-    try:
-        with open(dst):
-            print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
-            pass
-    except IOError:
-        with open(dst, 'wb') as handle:
-            print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
-            handle.write(info.encode('utf-8'))
+    if "Foren" not in info:
+        global files
+        files.next()
+        name = u'info.txt'
+        dst = path + name
+        try:
+            with open(dst):
+                print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+                pass
+        except IOError:
+            with open(dst, 'wb') as handle:
+                print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
+                handle.write(info.encode('utf-8'))
 
 
 def downloadResource(session, res, path):
@@ -269,14 +270,21 @@ if not courses:
     sys.exit()
 else:
     print colors.WARNING + 'Available courses:' + colors.ENDC
-    for c in courses:
-        print c['key'] + '.' + str(c['sem']) + ': ' + c['name'] + ' (' + c['type'] + ')'
+    for c in sorted(courses):
+        print '[' + str(courses.index(c)) + ']: ' + c['key'] + '.' + str(c['sem']) + ': ' + c['name'] + ' (' + c['type'] + ')'
 
 #confirmation
-c = raw_input(colors.WARNING + 'Proceed with downloading all courses? (y)' + colors.ENDC)
-if c == 'y':
+c = raw_input(colors.WARNING + 'Choose number of course to download, (a) for all or (q) to quit: ' + colors.ENDC)
+if c == 'a':
     for f in courses:
         downloadCourse(session, f, sems[s])
         print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
-else:
+    quit()
+
+if c == 'q':
     print colors.FAIL + 'Oh no? - Quitting!' + colors.ENDC
+    quit()
+
+downloadCourse(session, courses.pop(int(c)), sems[s])
+print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
+
