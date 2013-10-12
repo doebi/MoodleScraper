@@ -83,11 +83,11 @@ def saveFile(session, src, path, name):
 
     try:
         with open(dst):
-            print '|  |  +--{:<50s}'.format(name) + '['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+            print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
             pass
     except IOError:
         with open(dst, 'wb') as handle:
-            print '|  |  +--{:<50s}'.format(name) + '['+colors.OKGREEN+'downloading'+colors.ENDC+']'
+            print '['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name
             r = session.get(src, stream=True)
             for block in r.iter_content(1024):
                 if not block:
@@ -102,11 +102,11 @@ def saveLink(session, url, path, name):
     dst = path + fname
     try:
         with open(dst):
-            print u'|  |  +--{:<50s}'.format(fname) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+            print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
             pass
     except IOError:
         with open(dst, 'wb') as handle:
-            print u'|  |  +--{:<50s}'.format(fname) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
+            print '['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name
             r = session.get(url)
             soup = BeautifulSoup(r.text)
             link = soup.find(class_='region-content').a['href']
@@ -121,11 +121,11 @@ def saveInfo(path, info, tab):
         dst = path + name
         try:
             with open(dst):
-                print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKBLUE+'skipped'+colors.ENDC+']'
+                print '['+colors.OKBLUE+'skip'+colors.ENDC+'] ' + tab + '+--%s' %name
                 pass
         except IOError:
             with open(dst, 'wb') as handle:
-                print tab + u'|  +--{:<50s}'.format(name) + u'['+colors.OKGREEN+'saving'+colors.ENDC+']'
+                print '['+colors.OKGREEN+'save'+colors.ENDC+'] ' + tab + '+--%s' %name
                 handle.write(info.encode('utf-8'))
 
 
@@ -181,7 +181,7 @@ def downloadSection(session, s, path):
                 info = "\n".join(temp)
 
         path += name + '/'
-        print '|  +--' + name
+        print '       |  +--' + name
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -213,7 +213,7 @@ def downloadCourse(session, c, sem):
     #TODO: secure pathnames
     if not os.path.exists(path):
         os.makedirs(path)
-    print '+--' + name
+    print '       +--' + name
     r = session.get(c['url'])
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
