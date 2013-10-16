@@ -18,6 +18,7 @@ class colors:
     WARNING = '\033[93m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
+    BOLD = '\033[1m'
 
 def login(user, pwd):
     authdata = {
@@ -98,8 +99,8 @@ def saveFile(session, src, path, name):
 def saveLink(session, url, path, name):
     global files
     files.next()
-    fname = name + '.html'
-    dst = path + fname
+    fname = name.encode('utf-8').replace('/', '') + '.html'
+    dst = path.encode('utf-8') + fname
     try:
         with open(dst):
             print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
@@ -110,7 +111,12 @@ def saveLink(session, url, path, name):
             r = session.get(url)
             soup = BeautifulSoup(r.text)
             link = soup.find(class_='region-content').a['href']
-            handle.write(u'<a href="' + link.encode('utf-8') + u'">' + name.encode('utf-8') + u'</a>')
+            try:
+                handle.write(u'<a href="' + link.decode('utf-8') + u'">' + name.decode('utf-8') + u'</a>')
+            except UnicodeEncodeError:
+                os.remove(dst)
+                print '['+colors.FAIL+'fail'+colors.ENDC+'] |  |  +--%s' %name
+                pass
 
 
 def saveInfo(path, info, tab):
@@ -181,7 +187,7 @@ def downloadSection(session, s, path):
                 info = "\n".join(temp)
 
         path += name + '/'
-        print '       |  +--' + name
+        print '       |  +--' + colors.BOLD + name + colors.ENDC
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -191,11 +197,13 @@ def downloadSection(session, s, path):
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
             downloadResource(session, r, path)
+        """
         links = s.find_all(class_='activity url modtype_url ')
         for l in links:
             ln = l.find(class_='instancename')
             ln.span.extract()
             saveLink(session, l.a['href'], path, ln.get_text())
+        """
 
         #remove empty folders
         if os.listdir(path) == []:
@@ -210,10 +218,9 @@ def downloadCourse(session, c, sem):
     name = c['key'].replace('/', '-') + u'/'
     path = conf['root'] + sem.replace('/', '-') + u'/' + name
     path = urllib.url2pathname(path.encode('utf-8'))
-    #TODO: secure pathnames
     if not os.path.exists(path):
         os.makedirs(path)
-    print '       +--' + name
+    print '       +--' + colors.BOLD + name + colors.ENDC
     r = session.get(c['url'])
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
