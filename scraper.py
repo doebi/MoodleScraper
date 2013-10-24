@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import os, sys, itertools, re
 import urllib
 import ConfigParser
+import datetime
 
 config = ConfigParser.RawConfigParser()
 config.read('scraper.conf')
@@ -182,17 +183,25 @@ def downloadSection(session, s, path):
         info = s.find(class_='summary').get_text().strip()
         if len(info) > 0:
             if 'Thema' in name:
+                #prof failed to add a proper section name <.<
                 temp = info.split('\n')
-                name = temp.pop(0).strip().strip(':')
+                name = temp.pop(0).strip().strip(':').replace('/', '-')
                 info = "\n".join(temp)
-
-        path += name + '/'
-        print '       |  +--' + colors.BOLD + name + colors.ENDC
+        root = path
+        path = root + name + '/'
         if not os.path.exists(path):
-            os.makedirs(path)
+            try:
+                os.makedirs(path)
+            except OSError:
+                #filename too long
+                name = name.split(':')[0]
+                path = root + name + '/'
+                if not os.path.exists(path):
+                    os.makedirs(path)
+        print '       |  +--' + colors.BOLD + name + colors.ENDC
 
         if len(info) > 0:
-            saveInfo(path, info, u'')
+            saveInfo(path, info, u'|  ')
 
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
@@ -224,6 +233,10 @@ def downloadCourse(session, c, sem):
     r = session.get(c['url'])
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
+        if not os.path.exists(path + '.dump'):
+            os.makedirs(path + '.dump')
+        with open(path + '.dump/' + c['key'].replace('/', '-') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html', 'wb') as f:
+            f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
             downloadSection(session, s, path)
         #print 'Saved ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections'
@@ -277,7 +290,7 @@ if not courses:
     sys.exit()
 else:
     print colors.WARNING + 'Available courses:' + colors.ENDC
-    for c in sorted(courses):
+    for c in courses:
         print '[' + str(courses.index(c)) + ']: ' + c['key'] + '.' + str(c['sem']) + ': ' + c['name'] + ' (' + c['type'] + ')'
 
 #confirmation
