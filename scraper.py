@@ -137,7 +137,10 @@ def saveInfo(path, info, tab):
 
 
 def downloadResource(session, res, path):
-    src = res.a['href']
+    try:
+        src = res.a['href']
+    except TypeError:
+        return
     r = session.get(src)
     if(r.status_code == 200):
         headers = r.headers.keys()
@@ -263,6 +266,7 @@ print "        \/     \/           \/|__|        \/        "
 print colors.ENDC
 
 #logging in
+print "logging in..."
 session = login(conf['user'], conf['pwd'])
 
 #get semesters
