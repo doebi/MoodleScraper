@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from requests import session
 from bs4 import BeautifulSoup
 import os, sys, itertools, re
