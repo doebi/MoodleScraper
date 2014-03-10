@@ -55,12 +55,19 @@ def getInfo(tag):
     c = dict()
     c['url'] = tag['href']
     p = unicode(tag.string).split(',')
-    q = p[0].split('.')
-    c['course'] = q[0].strip()
-    c['sem'] = q[1]
-    c['key'] = q[2].strip()
-    c['name'] = p[1].strip()
-    c['type'] = p[2].strip().replace(' ', '-')
+    if len(p) >= 3:
+        q = p[0].split('.')
+        c['course'] = q[0].strip()
+        c['sem'] = q[1]
+        c['key'] = q[2].strip()
+        c['name'] = p[1].strip()
+        c['type'] = p[2].strip().replace(' ', '-')
+    elif len(p) == 1:
+        c['course'] = p[0].strip()
+        c['sem'] = 'X'
+        c['key'] = p[0].strip()
+        c['name'] = p[0].strip()
+        c['type'] = 'Allgemein'
     return c
 
 
@@ -178,6 +185,18 @@ def downloadSection(session, s, path):
         res = s.find_all(class_='activity resource modtype_resource ')
         for r in res:
             downloadResource(session, r, path)
+        folders = s.find_all(class_='box generalbox foldertree')
+        root = path
+        for f in folders:
+            res = f.find_all(class_='fp-filename-icon')
+            label = res.pop(0).text
+            path = root + u'/' + label.replace('/', '-')
+            path = urllib.url2pathname(path.encode('utf-8'))
+            if not os.path.exists(path):
+                os.makedirs(path)
+            print '       |  +--' + colors.BOLD + label + colors.ENDC
+            for r in res:
+                downloadResource(session, r, path + u'/')
 
     else:
         sections.next()
