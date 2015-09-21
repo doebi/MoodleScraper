@@ -173,6 +173,7 @@ def downloadResource(session, res, path):
 
 
 def downloadSection(session, s, path):
+    #print "download Section"
     global sections
     if s['id'] == 'section-0':
         try:
@@ -321,8 +322,11 @@ else:
 c = raw_input(colors.WARNING + 'Choose number of course to download, (a) for all or (q) to quit: ' + colors.ENDC)
 if c == 'a':
     for f in courses:
-        downloadCourse(session, f, sems[s])
-        print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
+        try:
+            downloadCourse(session, f, sems[s])
+            print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
+        except:
+            print "Error while processing!"
     quit()
 
 if c == 'q':
