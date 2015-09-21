@@ -77,7 +77,7 @@ def getInfo(tag):
 
 
 def getCoursesForSem(session, s):
-    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=1&sem=' + s)
+    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=1&csem=0&sem=' + s)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
         courses = list()
