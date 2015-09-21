@@ -6,9 +6,14 @@ import urllib
 import ConfigParser
 import datetime
 
+# read config
 config = ConfigParser.RawConfigParser()
 config.read('scraper.conf')
-conf = dict(config.items('scraper'))
+
+username = config.get("scraper", "user");
+password = config.get("scraper", "pwd");
+root = config.get("scraper", "root");
+baseurl = config.get("scraper", "baseurl");
 
 sections = itertools.count()
 files = itertools.count()
@@ -29,12 +34,12 @@ def login(user, pwd):
         'password': pwd
     }
     with session() as ses:
-        r = ses.post(conf['baseurl'] + 'login/index.php', data=authdata)
+        r = ses.post(baseurl + 'login/index.php', data=authdata)
         return ses
 
 
 def getSemesters(ses):
-    r = ses.get(conf['baseurl'] + 'index.php')
+    r = ses.get(baseurl + 'index.php')
 
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
@@ -72,7 +77,7 @@ def getInfo(tag):
 
 
 def getCoursesForSem(session, s):
-    r = session.get(conf['baseurl'] + 'index.php?role=0&cat=1&csem=1&sem=' + s)
+    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=1&sem=' + s)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text)
         courses = list()
@@ -249,7 +254,7 @@ def downloadCourse(session, c, sem):
     files = itertools.count()
     sections = itertools.count()
     name = c['key'].replace('/', '-') + u'/'
-    path = conf['root'] + sem.replace('/', '-') + u'/' + name
+    path = root + sem.replace('/', '-') + u'/' + name
     path = urllib.url2pathname(path.encode('utf-8'))
     if not os.path.exists(path):
         os.makedirs(path)
@@ -288,7 +293,7 @@ print colors.ENDC
 
 #logging in
 print "logging in..."
-session = login(conf['user'], conf['pwd'])
+session = login(username, password)
 
 #get semesters
 print "getting Semesters..."
