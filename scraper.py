@@ -77,7 +77,7 @@ def getInfo(tag):
 
 
 def getCoursesForSem(session, s):
-    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=1&sem=' + s)
+    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=0&sem=' + s)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text, 'html.parser')
         courses = list()
@@ -95,6 +95,7 @@ def saveFile(session, src, path, name):
     global files
     files.next()
     dst = path + name.decode('utf-8')
+    dst = dst.replace(':', '-').replace('"', '')
 
 
     try:
@@ -116,6 +117,7 @@ def saveLink(session, url, path, name):
     files.next()
     fname = name.encode('utf-8').replace('/', '') + '.html'
     dst = path.encode('utf-8') + fname
+    dst = dst.replace(':', '-').replace('"', '')
     try:
         with open(dst):
             print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
@@ -140,6 +142,7 @@ def saveInfo(path, info, tab):
         files.next()
         name = u'info.txt'
         dst = path + name
+        dst = dst.replace(':', '-').replace('"', '')
         try:
             with open(dst):
                 print '['+colors.OKBLUE+'skip'+colors.ENDC+'] ' + tab + '+--%s' %name
@@ -198,7 +201,7 @@ def downloadSection(session, s, path):
             res = f.find_all(class_='fp-filename-icon')
             label = res.pop(0).text
             path = root + u'/' + label.replace('/', '-')
-            path = urllib.url2pathname(path.encode('utf-8'))
+            path = urllib.url2pathname(path.encode('utf-8')).replace(':', '-').replace('"', '')
             if not os.path.exists(path):
                 os.makedirs(path)
             print '       |  +--' + colors.BOLD + label + colors.ENDC
@@ -219,13 +222,15 @@ def downloadSection(session, s, path):
                 info = "\n".join(temp)
         root = path
         path = root + name + '/'
+        path = path.replace(':', '-').replace('"', '')
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
             except OSError:
                 #filename too long
-                name = name.split(':')[0]
+                name = name[:60]
                 path = root + name + '/'
+                path = path.replace(':', '-').replace('"', '')
                 if not os.path.exists(path):
                     os.makedirs(path)
         print '       |  +--' + colors.BOLD + name + colors.ENDC
@@ -256,7 +261,7 @@ def downloadCourse(session, c, sem):
     sections = itertools.count()
     name = c['key'].replace('/', '-') + u'/'
     path = root + sem.replace('/', '-') + u'/' + name
-    path = urllib.url2pathname(path.encode('utf-8'))
+    path = urllib.url2pathname(path.encode('utf-8')).replace(':', '-').replace('"', '')
     if not os.path.exists(path):
         os.makedirs(path)
     print '       +--' + colors.BOLD + name + colors.ENDC
@@ -265,8 +270,11 @@ def downloadCourse(session, c, sem):
         soup = BeautifulSoup(r.text, 'html.parser')
         if not os.path.exists(path + '.dump'):
             os.makedirs(path + '.dump')
-        print path
-        with open(path + '.dump/' + c['key'].replace('/', '-').encode('utf-8') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html', 'wb') as f:
+
+        dst = path + '.dump/' + c['key'].replace('/', '-').encode('utf-8') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html'
+        dst = dst.replace(':', '-').replace('"', '')
+        
+        with open(dst, 'wb') as f:
             f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
             downloadSection(session, s, path)
