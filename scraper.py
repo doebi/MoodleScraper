@@ -77,7 +77,7 @@ def getInfo(tag):
 
 
 def getCoursesForSem(session, s):
-    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=0&sem=' + s)
+    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=1&sem=' + s)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text, 'html.parser')
         courses = list()
@@ -94,7 +94,7 @@ def getCoursesForSem(session, s):
 def saveFile(session, src, path, name):
     global files
     files.next()
-    dst = path + name
+    dst = path + name.decode('utf-8')
 
 
     try:
@@ -218,7 +218,7 @@ def downloadSection(session, s, path):
                 name = temp.pop(0).strip().strip(':').replace('/', '-')
                 info = "\n".join(temp)
         root = path
-        path = root + name.encode('utf-8') + '/'
+        path = root + name + '/'
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
@@ -265,7 +265,7 @@ def downloadCourse(session, c, sem):
         soup = BeautifulSoup(r.text, 'html.parser')
         if not os.path.exists(path + '.dump'):
             os.makedirs(path + '.dump')
-
+        print path
         with open(path + '.dump/' + c['key'].replace('/', '-').encode('utf-8') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html', 'wb') as f:
             f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
@@ -342,3 +342,4 @@ if c == 'q':
 
 downloadCourse(session, courses.pop(int(c)), sems[s])
 print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
+
