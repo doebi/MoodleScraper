@@ -42,7 +42,7 @@ def getSemesters(ses):
     r = ses.get(baseurl + 'index.php')
 
     if(r.status_code == 200):
-        soup = BeautifulSoup(r.text)
+        soup = BeautifulSoup(r.text, 'html.parser')
         semesters = dict()
         temp = soup.find(id='cmb_mc_semester')
 
@@ -79,11 +79,12 @@ def getInfo(tag):
 def getCoursesForSem(session, s):
     r = session.get(baseurl + 'index.php?role=0&cat=1&csem=0&sem=' + s)
     if(r.status_code == 200):
-        soup = BeautifulSoup(r.text)
+        soup = BeautifulSoup(r.text, 'html.parser')
         courses = list()
         for o in soup.find_all('h3'):
-            c = getInfo(o.contents[0])
-            courses.append(c)
+            if (len(o.find_all('a')) > 0):
+                c = getInfo(o.contents[0])
+                courses.append(c)
         return courses
     else:
         print 'ERROR: ' + str(r.status) + ' ' + r.reason
@@ -93,7 +94,7 @@ def getCoursesForSem(session, s):
 def saveFile(session, src, path, name):
     global files
     files.next()
-    dst = path + name.decode('utf-8')
+    dst = path + name
 
 
     try:
@@ -123,7 +124,7 @@ def saveLink(session, url, path, name):
         with open(dst, 'wb') as handle:
             print '['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name
             r = session.get(url)
-            soup = BeautifulSoup(r.text)
+            soup = BeautifulSoup(r.text, 'html.parser')
             link = soup.find(class_='region-content').a['href']
             try:
                 handle.write(u'<a href="' + link.decode('utf-8') + u'">' + name.decode('utf-8') + u'</a>')
@@ -162,7 +163,7 @@ def downloadResource(session, res, path):
             name = r.headers['content-disposition'].decode('utf-8').split(';')[1].split('=')[1].strip('"')
         else:
             #got a preview page
-            soup = BeautifulSoup(r.text)
+            soup = BeautifulSoup(r.text, 'html.parser')
             if ('content-type' in headers) and ('content-script-type' in headers) and ('content-style-type' in headers):
                 #it's most obviously a website, which displays a download link
                 src = soup.find(class_='region-content').a['href']
@@ -217,7 +218,7 @@ def downloadSection(session, s, path):
                 name = temp.pop(0).strip().strip(':').replace('/', '-')
                 info = "\n".join(temp)
         root = path
-        path = root + name + '/'
+        path = root + name.encode('utf-8') + '/'
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
@@ -261,10 +262,11 @@ def downloadCourse(session, c, sem):
     print '       +--' + colors.BOLD + name + colors.ENDC
     r = session.get(c['url'])
     if(r.status_code == 200):
-        soup = BeautifulSoup(r.text)
+        soup = BeautifulSoup(r.text, 'html.parser')
         if not os.path.exists(path + '.dump'):
             os.makedirs(path + '.dump')
-        with open(path + '.dump/' + c['key'].replace('/', '-') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html', 'wb') as f:
+
+        with open(path + '.dump/' + c['key'].replace('/', '-').encode('utf-8') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html', 'wb') as f:
             f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
             downloadSection(session, s, path)
@@ -340,4 +342,3 @@ if c == 'q':
 
 downloadCourse(session, courses.pop(int(c)), sems[s])
 print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
-
