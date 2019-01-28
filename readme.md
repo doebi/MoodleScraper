@@ -34,10 +34,14 @@ Prerequisites
 
 The script uses python-requests and BeautifulSoup4.
 
+Ìnstall all needed libraries via one command
+```
+pip install -r requirements.txt
+```
+or each library seperately
 ```
 pip install requests
 pip install beautifulSoup4
-pip install urllib
 ```
 
 Configuration
