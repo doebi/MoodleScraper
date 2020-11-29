@@ -1,28 +1,29 @@
 #!/usr/bin/env python2
 from requests import session
 from bs4 import BeautifulSoup
-import os, sys, itertools, re
-import urllib
-import ConfigParser
+import os, sys
+import configparser as ConfigParser
 import datetime
+import json
+import urllib
+
+
+ERROR_LOGIN = 'Error on Login'
+ERROR_LINK = 'Link provided is wrong'
 
 # read config
 config = ConfigParser.RawConfigParser()
 config.read('scraper.conf')
+baseurl = 0
+root=''
 
-username = config.get("scraper", "user");
-password = config.get("scraper", "pwd");
-root = config.get("scraper", "root");
-baseurl = config.get("scraper", "baseurl");
-
-sections = itertools.count()
-files = itertools.count()
 
 class colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
+    DANGER = '\033[31m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
@@ -35,76 +36,68 @@ def login(user, pwd):
     }
     with session() as ses:
         r = ses.post(baseurl + 'login/index.php', data=authdata)
-        return ses
+
+        if r.status_code != 200:
+            raise Exception(ERROR_LINK)
+
+        soup = BeautifulSoup(r.text,'html.parser')
+
+        user = soup.select_one('span[class*="userbutton"]')
+        if(user!=None):
+            return ses
+        else:
+            raise Exception(ERROR_LOGIN)
 
 
-def getSemesters(ses):
-    r = ses.get(baseurl + 'index.php')
+def exit_and_save():
+    with open('scraper.conf', 'w') as configfile:
+       config.write(configfile)
+    sys.exit()
 
-    if(r.status_code == 200):
-        soup = BeautifulSoup(r.text, 'html.parser')
-        semesters = dict()
-        temp = soup.find(id='cmb_mc_semester')
-
-        for o in soup.find(id='cmb_mc_semester'):
-            if o != unicode('\n'):
-                if o.string != 'Alle Semester':
-                    semesters[o['value']] = o.string
-        return semesters
-    else:
-        print 'ERROR: ' + str(r.status) + ' ' + r.reason
-	sys.exit()
-
-
-def getInfo(tag):
-    c = dict()
-    c['url'] = tag['href']
-    p = unicode(tag.string).split(',')
-    if len(p) >= 3:
-        q = p[0].split('.')
-        c['course'] = q[0].strip()
-        c['sem'] = q[1]
-        c['key'] = q[2].strip()
-        c['name'] = p[1].strip()
-        c['type'] = p[2].strip().replace(' ', '-')
-    elif len(p) == 1:
-        c['course'] = p[0].strip()
-        c['sem'] = 'X'
-        c['key'] = p[0].strip()
-        c['name'] = p[0].strip()
-        c['type'] = 'Allgemein'
-    return c
+#Return a dictionary with the courses and respective links
+def getCurrCourses(ses):
+    page = ses.get(baseurl + 'index.php')
+    soup = BeautifulSoup(page.text, 'html.parser')
+    curr_courses = soup.select('div[class*="courses-view-course-item"]')
+    result = dict()
+    for course in curr_courses:
+        tag_h = course.find('h4')
+        course_link = tag_h.a['href']
+        course_name = tag_h.a.text.replace(' ','_').replace('/', '-')
+        result[course_name] = course_link
+    
+    return result
 
 
-def getCoursesForSem(session, s):
-    r = session.get(baseurl + 'index.php?role=0&cat=1&csem=0&sem=' + s)
-    if(r.status_code == 200):
-        soup = BeautifulSoup(r.text, 'html.parser')
-        courses = list()
-        for o in soup.find_all('h3'):
-            if (len(o.find_all('a')) > 0):
-                c = getInfo(o.contents[0])
-                courses.append(c)
-        return courses
-    else:
-        print 'ERROR: ' + str(r.status) + ' ' + r.reason
-	sys.exit()
+#Return a list of toupples containing the name and link of resource respectively
+def getResources(ses, course_link):
+    page = ses.get(course_link)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    course_div = soup.select('div[class*="course-content"]')[0]
+    resources = course_div.select('li[class*="activity resource"] div[class*="activityinstance"] a')
+    resource_list = []
+    for resource in resources:
+        link = resource['href']
+        name = resource.span.text
+        resource_list.append((name,link))
+    return resource_list
+
+
+
 
 
 def saveFile(session, src, path, name):
-    global files
-    files.next()
-    dst = path + name.decode('utf-8')
+    dst = path + name
     dst = dst.replace(':', '-').replace('"', '')
 
 
     try:
         with open(dst):
-            print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
+            print('['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name)
             pass
     except IOError:
         with open(dst, 'wb') as handle:
-            print '['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name
+            print('['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name)
             r = session.get(src, stream=True)
             for block in r.iter_content(1024):
                 if not block:
@@ -113,18 +106,18 @@ def saveFile(session, src, path, name):
 
 
 def saveLink(session, url, path, name):
-    global files
-    files.next()
-    fname = name.encode('utf-8').replace('/', '') + '.html'
-    dst = path.encode('utf-8') + fname
+    #global files
+    #files.next()
+    fname = name.replace('/', '') + '.html'
+    dst = path + fname
     dst = dst.replace(':', '-').replace('"', '')
     try:
         with open(dst):
-            print '['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name
+            print('['+colors.OKBLUE+'skip'+colors.ENDC+'] |  |  +--%s' %name)
             pass
     except IOError:
         with open(dst, 'wb') as handle:
-            print '['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name
+            print('['+colors.OKGREEN+'save'+colors.ENDC+'] |  |  +--%s' %name)
             r = session.get(url)
             soup = BeautifulSoup(r.text, 'html.parser')
             link = soup.find(class_='region-content').a['href']
@@ -132,24 +125,24 @@ def saveLink(session, url, path, name):
                 handle.write(u'<a href="' + link.decode('utf-8') + u'">' + name.decode('utf-8') + u'</a>')
             except UnicodeEncodeError:
                 os.remove(dst)
-                print '['+colors.FAIL+'fail'+colors.ENDC+'] |  |  +--%s' %name
+                print('['+colors.FAIL+'fail'+colors.ENDC+'] |  |  +--%s' %name)
                 pass
 
 
 def saveInfo(path, info, tab):
     if "Foren" not in info:
-        global files
-        files.next()
+        #global files
+        #files.next()
         name = u'info.txt'
         dst = path + name
         dst = dst.replace(':', '-').replace('"', '')
         try:
             with open(dst):
-                print '['+colors.OKBLUE+'skip'+colors.ENDC+'] ' + tab + '+--%s' %name
+                print('['+colors.OKBLUE+'skip'+colors.ENDC+'] ',tab,'+--%s' %name)
                 pass
         except IOError:
             with open(dst, 'wb') as handle:
-                print '['+colors.OKGREEN+'save'+colors.ENDC+'] ' + tab + '+--%s' %name
+                print('['+colors.OKGREEN+'save'+colors.ENDC+'] ',tab,'+--%s' %name)
                 handle.write(info.encode('utf-8'))
 
 
@@ -163,7 +156,7 @@ def downloadResource(session, res, path):
         headers = r.headers.keys()
         if ('content-disposition' in headers):
             #got a direct file link
-            name = r.headers['content-disposition'].decode('utf-8').split(';')[1].split('=')[1].strip('"')
+            name = r.headers['content-disposition'].split(';')[1].split('=')[1].strip('"')
         else:
             #got a preview page
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -174,16 +167,15 @@ def downloadResource(session, res, path):
                 #it's obviously an ugly frameset site
                 src = soup.find_all('frame')[1]['src']
             name = os.path.basename(src)
-        name = urllib.url2pathname(name.encode('utf-8'))
+        name = urllib.request.url2pathname(name)
         saveFile(session, src, path, name)
     else:
-        print 'ERROR: ' + str(r.status) + ' ' + r.reason
-	sys.exit()
+        print(('ERROR: ',str(r.status),' ',r.reason))
+    #sys.exit()
 
 
 def downloadSection(session, s, path):
-    #print "download Section"
-    global sections
+    #print("download Section")
     if s['id'] == 'section-0':
         try:
             info = s.find(class_='activity label modtype_label ').get_text()
@@ -192,7 +184,7 @@ def downloadSection(session, s, path):
         else:
             saveInfo(path, info, u'')
 
-        res = s.find_all(class_='activity resource modtype_resource ')
+        res = s.select('[class*="activity resource modtype_resource"]')
         for r in res:
             downloadResource(session, r, path)
         folders = s.find_all(class_='box generalbox foldertree')
@@ -201,18 +193,16 @@ def downloadSection(session, s, path):
             res = f.find_all(class_='fp-filename-icon')
             label = res.pop(0).text
             path = root + u'/' + label.replace('/', '-')
-            path = urllib.url2pathname(path.encode('utf-8')).replace(':', '-').replace('"', '')
+            path = path.encode('utf-8').replace(':', '-').replace('"', '').replace(' ','_')
             if not os.path.exists(path):
                 os.makedirs(path)
-            print '       |  +--' + colors.BOLD + label + colors.ENDC
+            print('       |  +--',colors.BOLD,label,colors.ENDC)
             for r in res:
                 downloadResource(session, r, path + u'/')
 
     else:
-        sections.next()
-        s = list(s.children)[2]
+        #s = list(s.children)[2]
         name = s.find(class_='sectionname').contents[0].replace('/', '-').strip().strip(':') + '/'
-        info = ''
         info = s.find(class_='summary').get_text().strip()
         if len(info) > 0:
             if 'Thema' in name:
@@ -233,12 +223,12 @@ def downloadSection(session, s, path):
                 path = path.replace(':', '-').replace('"', '')
                 if not os.path.exists(path):
                     os.makedirs(path)
-        print '       |  +--' + colors.BOLD + name + colors.ENDC
+        print('       |  +--',colors.BOLD,name,colors.ENDC)
 
         if len(info) > 0:
             saveInfo(path, info, u'|  ')
 
-        res = s.find_all(class_='activity resource modtype_resource ')
+        res = s.select('[class*="activity resource modtype_resource"]')
         for r in res:
             downloadResource(session, r, path)
         """
@@ -254,100 +244,181 @@ def downloadSection(session, s, path):
             os.rmdir(path)
 
 
-def downloadCourse(session, c, sem):
-    global files
-    global sections
-    files = itertools.count()
-    sections = itertools.count()
-    name = c['key'].replace('/', '-') + u'/'
-    path = root + sem.replace('/', '-') + u'/' + name
-    path = urllib.url2pathname(path.encode('utf-8')).replace(':', '-').replace('"', '')
+def check_courses_selected(courses):
+    if config.has_option('scraper','curses'):
+        curses_list = json.loads(config.get("scraper","curses"))
+        if(len(curses_list)>0):
+            return curses_list
+    else:
+        curses_list = []
+    courses_to_download = enumerate(courses.keys())
+    for val,name in courses_to_download:
+        print(val,'-',name)
+
+    print('\nType the number of the courses that you want to save for future searches.')
+    print('Type one at a time and press enter')
+    print('If you want all courses type "a", to finish selection type "q"')
+
+    _input = input()
+    while _input != 'q':
+        if _input == 'a':
+            curses_list = list(courses.keys())
+            break
+        try:
+            input_int = int(_input)
+            if(input_int < len(courses)):
+                for num,name in courses_to_download:
+                    if num == input_int:
+                        curses_list.append(name)
+                        break
+        except:
+            None
+        
+        _input = input()
+    
+    print(curses_list)
+    str_courses = json.dumps(curses_list)
+    config.set('scraper','curses',str_courses)
+
+    return curses_list
+
+
+def check_auth_info():
+    global baseurl
+    global root
+    if config.has_option('scraper','user'):
+        username = config.get("scraper", "user")
+        
+    else:
+        print('Please type your username below.')
+        username = input()
+
+    if config.has_option('scraper','pwd'):
+        pwd = config.get("scraper", "pwd")
+        
+    else:
+        print('Please type your password below.',colors.DANGER,'THE PASSWORD WILL BE SAVED AS PLAIN TEXT',colors.ENDC)
+        pwd = input()
+
+    if config.has_option('scraper','root'):
+        root = config.get("scraper", "root")
+    else:
+        root = ''
+
+    if config.has_option('scraper','baseurl'):
+        baseurl = config.get("scraper", "baseurl")
+        
+    else:
+        print('Please the type the url below.')
+        baseurl = input()
+
+    session = 0
+    try:
+        session = login(username, pwd)
+    except Exception as e:
+        if e.__str__() == ERROR_LINK:
+            config.set('scraper','user',username)
+            config.set('scraper','pwd',pwd)
+            print(colors.DANGER,'Error connecting to website, either the website is unresponsive or the link provided is wrong.',colors.ENDC)
+            print(colors.WARNING,'BaseURL:' + baseurl,colors.ENDC)
+            print('To change the link, change the property "baseurl" in scraper.conf.')
+            exit_and_save()
+        elif e.__str__() == ERROR_LOGIN:
+            config.remove_option('scraper','user')
+            config.remove_option('scraper','pwd')
+            config.set('scraper','baseurl',baseurl)
+            print(colors.DANGER,'Error on authentication. Either the password or login are wrong.',colors.ENDC)
+            return check_auth_info()
+        else:
+            print(colors.DANGER,'Uknown Error ocurred while loginng in, exiting...')
+            sys.exit()
+    
+    config.set('scraper','user',username)
+    config.set('scraper','pwd',pwd)
+    config.set('scraper','root',root)
+    config.set('scraper','baseurl',baseurl)
+            
+    return session
+    
+    
+
+
+
+
+def downloadCourse(session, name_course,link_course):
+    name = name_course.replace('/', '-') + u'/'
+    path = root + name
+    path = path.replace(':', '-').replace('"', '').replace(' ','_')
     if not os.path.exists(path):
         os.makedirs(path)
-    print '       +--' + colors.BOLD + name + colors.ENDC
-    r = session.get(c['url'])
+    print('       +--',colors.BOLD,name,colors.ENDC)
+    r = session.get(link_course)
     if(r.status_code == 200):
         soup = BeautifulSoup(r.text, 'html.parser')
         if not os.path.exists(path + '.dump'):
             os.makedirs(path + '.dump')
 
-        dst = path + '.dump/' + c['key'].replace('/', '-').encode('utf-8') + '-' + c['type'] + '-' + str(datetime.date.today()) + '-full.html'
+        dst = path + '.dump/' + name_course.replace('/', '-') + '-' + str(datetime.date.today()) + '-full.html'
         dst = dst.replace(':', '-').replace('"', '')
         
         with open(dst, 'wb') as f:
             f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
             downloadSection(session, s, path)
-        #print 'Saved ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections'
+        #print('Saved ',str(files.next()),' Files in ',str(sections.next()),' Sections')
     else:
-        print 'ERROR: ' + str(r.status) + ' ' + r.reason
-        sys.exit()
+        print('ERROR: ',str(r.status),' ',r.reason)
+        exit_and_save()
 
 
 
 
-print colors.HEADER
-print "      _____                    .___.__              "
-print "     /     \   ____   ____   __| _/|  |   ____      "
-print "    /  \ /  \ /  _ \ /  _ \ / __ | |  | _/ __ \     "
-print "   /    Y    (  <_> |  <_> ) /_/ | |  |_\  ___/     "
-print "   \____|__  /\____/ \____/\____ | |____/\___  >    "
-print "           \/                   \/           \/     "
-print "  _________                                         "
-print " /   _____/ ________________  ______   ___________  "
-print " \_____  \_/ ___\_  __ \__  \ \____ \_/ __ \_  __ \ "
-print " /        \  \___|  | \// __ \|  |_> >  ___/|  | \/ "
-print "/_______  /\___  >__|  (____  /   __/ \___  >__|    "
-print "        \/     \/           \/|__|        \/        "
-print colors.ENDC
+print(colors.HEADER)
+print("      _____                    .___.__              ")
+print("     /     \   ____   ____   __| _/|  |   ____      ")
+print("    /  \ /  \ /  _ \ /  _ \ / __ | |  | _/ __ \     ")
+print("   /    Y    (  <_> |  <_> ) /_/ | |  |_\  ___/     ")
+print("   \____|__  /\____/ \____/\____ | |____/\___  >    ")
+print("           \/                   \/           \/     ")
+print("  _________                                         ")
+print(" /   _____/ ________________  ______   ___________  ")
+print(" \_____  \_/ ___\_  __ \__  \ \____ \_/ __ \_  __ \ ")
+print(" /        \  \___|  | \// __ \|  |_> >  ___/|  | \/ ")
+print("/_______  /\___  >__|  (____  /   __/ \___  >__|    ")
+print("        \/     \/           \/|__|        \/        ")
+print(colors.ENDC)
 
 #logging in
-print "logging in..."
-session = login(username, password)
+print("logging in...")
+session = check_auth_info()
+#exit_and_save()
 
-#get semesters
-print "getting Semesters..."
-sems = getSemesters(session)
-if not sems:
-    print colors.FAIL + 'No semester found - Quitting!' + colors.ENDC
-    sys.exit()
+
+
+print("getting Courses...")
+courses = getCurrCourses(session)
+if len(courses) == 0:
+    print(colors.FAIL,'No courses found - Quitting!',colors.ENDC)
+    exit_and_save()
 else:
-    print colors.WARNING + 'Available semester:' + colors.ENDC
-    for s in sorted(sems):
-        print '[' + s + ']: ' + sems[s]
+    print(colors.WARNING,'Available Courses:',colors.ENDC)
+    for name in courses.keys():
+        print('[',name,']: ',courses[name])
 
-#input loop
-ok = False
-while not ok:
-    s = raw_input(colors.WARNING + 'Select semester: ' + colors.ENDC)
-    ok = s in sems.keys()
 
-#get courses
-print "getting Courses..."
-courses = getCoursesForSem(session, s)
-if not courses:
-    print colors.FAIL + 'No courses in this semester - Quitting!' + colors.ENDC
-    sys.exit()
-else:
-    print colors.WARNING + 'Available courses:' + colors.ENDC
-    for c in courses:
-        print '[' + str(courses.index(c)) + ']: ' + c['key'] + '.' + str(c['sem']) + ': ' + c['name'] + ' (' + c['type'] + ')'
+curses_list = check_courses_selected(courses)
 
-#confirmation
-c = raw_input(colors.WARNING + 'Choose number of course to download, (a) for all or (q) to quit: ' + colors.ENDC)
-if c == 'a':
-    for f in courses:
-        try:
-            downloadCourse(session, f, sems[s])
-            print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
-        except:
-            print "Error while processing!"
-    quit()
 
-if c == 'q':
-    print colors.FAIL + 'Oh no? - Quitting!' + colors.ENDC
-    quit()
 
-downloadCourse(session, courses.pop(int(c)), sems[s])
-print colors.WARNING + 'Successfully processed ' + str(files.next()) + ' Files in ' + str(sections.next()) + ' Sections!' + colors.ENDC
+
+for name,link in courses.items():
+    if name not in curses_list:
+        continue
+    try:
+        downloadCourse(session, name, link)
+    except Exception as e:
+        print(colors.DANGER,"Error while processing!",colors.ENDC)
+        raise e
+
+exit_and_save()
 
