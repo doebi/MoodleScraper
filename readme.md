@@ -57,12 +57,16 @@ Follow the Dialog.
 
 Updates Made
 ----------
-- Fix to work with new versions of Moodle
-- Fix to work with Python3
-- Option to filter only some courses
-- Remove semester scrapping option
-- Added options to input the username, password and courses filter directly from the command prompt
+- Fix to work with new versions of Moodle.
+- Fix to work with Python3.
+- Option to filter only some courses.
+- Remove semester scrapping option.
+- Added options to input the username, password and courses filter directly from the command prompt.
 
+
+Next Updates
+----------
+- Download files from folders.
 
 Disclaimer
 ----------
