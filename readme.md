@@ -53,20 +53,18 @@ Usage
 python scraper.py
 ```
 
-Follow the Dialog.
+Follow the Dialog.<br>
+To chose the settings again just delete the variable in the file.
 
 Updates Made
 ----------
-- Fix to work with new versions of Moodle.
-- Fix to work with Python3.
-- Option to filter only some courses.
-- Remove semester scrapping option.
-- Added options to input the username, password and courses filter directly from the command prompt.
+- Fix to work with new versions of Moodle
+- Fix to work with Python3
+- Option to filter only some courses
+- Remove semester scrapping option
+- Added options to input the username, password and courses filter directly from the command prompt
+- Download Folders
 
-
-Next Updates
-----------
-- Download files from folders.
 
 Disclaimer
 ----------
