@@ -6,6 +6,7 @@ import configparser as ConfigParser
 import datetime
 import json
 import urllib
+import zipfile
 
 
 ERROR_LOGIN = 'Error on Login'
@@ -173,6 +174,48 @@ def downloadResource(session, res, path):
         print(('ERROR: ',str(r.status),' ',r.reason))
     #sys.exit()
 
+def downloadExtract(session, res, path):
+    try:
+        src = res.a['href']
+    except TypeError:
+        return
+    page_download = session.get(src)
+    if(page_download.status_code == 200):
+        soup = BeautifulSoup(page_download.text, 'html.parser')
+        button_div= soup.find(class_='box generalbox folderbuttons py-3')
+        id_input = button_div.find('input', {'name': 'id'}).get('value')
+        session_input = button_div.find('input', {'name': 'sesskey'}).get('value')
+        form_link = button_div.find('form').get('action')
+        args = {'id':id_input,'sesskey':session_input}
+        #print(id_input,session_input,form_link)
+
+        resource = session.post(form_link,data=args)
+        final_path = path+"the.zip"
+        with open(final_path, 'wb') as handle:
+            handle.write(resource.content)
+
+        zip_ref = zipfile.ZipFile(final_path)
+        zip_ref.extractall(path)
+        zip_ref.close()
+        os.remove(final_path)
+        #saveFile(session, resource.content, path, "the.zip")
+    else:
+        print(('ERROR: ',str(page_download.status),' ',page_download.reason))
+
+#def downloadFolder(session, res, path):
+#    try:
+#        src = res.a['href']
+#    except TypeError:
+#        return
+#    page_download = session.get(src)
+#    if(page_download.status_code == 200):
+#        soup = BeautifulSoup(page_download.text, 'html.parser')
+#        folders = soup.find_all(class_='box generalbox foldertree py-3')
+#        print(len(folders))
+#        for f in folders:
+#            downloadResource(session, f, path)
+#    else:
+#        print(('ERROR: ',str(page_download.status),' ',page_download.reason))
 
 def downloadSection(session, s, path):
     #print("download Section")
@@ -183,22 +226,22 @@ def downloadSection(session, s, path):
             pass
         else:
             saveInfo(path, info, u'')
-
+        
         res = s.select('[class*="activity resource modtype_resource"]')
         for r in res:
             downloadResource(session, r, path)
-        folders = s.find_all(class_='box generalbox foldertree')
+
+        folders = s.find_all(class_='activity folder modtype_folder')
         root = path
         for f in folders:
-            res = f.find_all(class_='fp-filename-icon')
-            label = res.pop(0).text
-            path = root + u'/' + label.replace('/', '-')
-            path = path.encode('utf-8').replace(':', '-').replace('"', '').replace(' ','_')
+            res = f.find_all(class_='instancename')
+            label = str(res.pop(0).contents[0])#.text
+            path = root + '/' + label.replace('/', '-')
+            path = path.replace(':', '-').replace('"', '').replace(' ','_')
             if not os.path.exists(path):
                 os.makedirs(path)
             print('       |  +--',colors.BOLD,label,colors.ENDC)
-            for r in res:
-                downloadResource(session, r, path + u'/')
+            downloadExtract(session, f, path + '/')
 
     else:
         #s = list(s.children)[2]
@@ -239,6 +282,17 @@ def downloadSection(session, s, path):
             saveLink(session, l.a['href'], path, ln.get_text())
         """
 
+        folders = s.find_all(class_='activity folder modtype_folder')
+        root = path[:-1]
+        for f in folders:
+            res = f.find_all(class_='instancename')
+            label = str(res.pop(0).contents[0])#.text
+            path_ = root + label.replace('/', '-').replace(':', '-').replace('"', '').replace(' ','_')
+            if not os.path.exists(path_):
+                os.makedirs(path_)
+            print('       |  +--',colors.BOLD,label,colors.ENDC)
+            downloadExtract(session, f, path_ + '/')
+
         #remove empty folders
         if os.listdir(path) == []:
             os.rmdir(path)
@@ -267,7 +321,8 @@ def check_courses_selected(courses):
         try:
             input_int = int(_input)
             if(input_int < len(courses)):
-                for num,name in courses_to_download:
+                for num,name in enumerate(courses.keys()):
+                    #print(name,num)
                     if num == input_int:
                         curses_list.append(name)
                         break
@@ -292,6 +347,7 @@ def check_auth_info():
     else:
         print('Please type your username below.')
         username = input()
+        config.set('scraper','user',username)
 
     if config.has_option('scraper','pwd'):
         pwd = config.get("scraper", "pwd")
@@ -299,6 +355,7 @@ def check_auth_info():
     else:
         print('Please type your password below.',colors.DANGER,'THE PASSWORD WILL BE SAVED AS PLAIN TEXT',colors.ENDC)
         pwd = input()
+        config.set('scraper','pwd',pwd)
 
     if config.has_option('scraper','root'):
         root = config.get("scraper", "root")
@@ -311,6 +368,7 @@ def check_auth_info():
     else:
         print('Please the type the url below.')
         baseurl = input()
+        config.set('scraper','baseurl',baseurl)
 
     session = 0
     try:
@@ -333,16 +391,10 @@ def check_auth_info():
             print(colors.DANGER,'Uknown Error ocurred while loginng in, exiting...')
             sys.exit()
     
-    config.set('scraper','user',username)
-    config.set('scraper','pwd',pwd)
     config.set('scraper','root',root)
-    config.set('scraper','baseurl',baseurl)
             
     return session
     
-    
-
-
 
 
 def downloadCourse(session, name_course,link_course):
@@ -364,7 +416,9 @@ def downloadCourse(session, name_course,link_course):
         with open(dst, 'wb') as f:
             f.write(soup.encode('utf-8'))
         for s in soup.find_all(class_='section main clearfix'):
+            #test_download_folder(session,s, path)
             downloadSection(session, s, path)
+
         #print('Saved ',str(files.next()),' Files in ',str(sections.next()),' Sections')
     else:
         print('ERROR: ',str(r.status),' ',r.reason)
@@ -400,14 +454,13 @@ courses = getCurrCourses(session)
 if len(courses) == 0:
     print(colors.FAIL,'No courses found - Quitting!',colors.ENDC)
     exit_and_save()
-else:
-    print(colors.WARNING,'Available Courses:',colors.ENDC)
-    for name in courses.keys():
-        print('[',name,']: ',courses[name])
+#else:
+    #print(colors.WARNING,'Available Courses:',colors.ENDC)
+    #for name in courses.keys():
+        #print('[',name,']: ',courses[name])
 
 
 curses_list = check_courses_selected(courses)
-
 
 
 
